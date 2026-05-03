@@ -541,18 +541,23 @@ Register("killnorespawn", function (_, playerActor)
             copExists = true
         end
     end
+    local isRobber = playerActor.robber
     if #players == 1 then
-        GM():RoundWon_GM(not playerActor.robber, 1)
-    elseif not robberAlive and copExists then
-        GM():RoundWon_GM(false, 1)
-    elseif not copAlive and robberExists then
+        local wonReason = isRobber == false and 1 or 2 --1 = cops died; 2 = robbers died; 0 = stole money
+        GM():RoundWon_GM(isRobber == false, wonReason)
+    elseif not robberAlive and copExists and isRobber == true then
+        GM():RoundWon_GM(false, 2)
+    elseif not copAlive and robberExists and isRobber == false then
         GM():RoundWon_GM(true, 1)
     end
 end)
 
---Respawns the player that runs the command.
+--Respawns the player that runs the command. (Does currently not work as intended)
+--SupriseRespawnSV 	loc: FVector, HP: float -- SupriseRespawnCl
 Register("respawn", function (_, playerActor)
     GM():RespawnPlayer(playerActor, false)
+    playerActor:PlayerRespawnedCl()
+    playerActor:PlayerRespawnedSv()
     SendServerMessage("Respawned player " .. playerActor.PlayersName)
 end)
 
@@ -947,7 +952,8 @@ Register("ping", function ()
     GS():SpawnLuaPingSV(PING_FILE_NAME, loadedActor:GetActorLocation())
 end, {"pingactor"})
 
---Destroys the loaded actor iaof it is a lua custom actor. Use forcedestroy if you want to destroy it regardless (might be permanent).
+--Destroys the loaded actor except for Lua Spawners, player chars and level editor props since they will not respawn.
+--Use forcedestroy if you want to destroy it regardless.
 Register("destroy", function ()
     if not CheckActorExistence() then return end
     local className = GetActorClassName(loadedActor)
@@ -967,7 +973,7 @@ end, {"destroyactor", "luadestroy", "luadestroyactor", "destroylua", "destroylua
 
 --Destroys the loaded actor.
 --WARNING: destroying a Lua_Actor_Spawner or an editor prop will permanently delete it from the server.
---Destroying a player actor will break their game.
+--Destroying a player actor will force them to rejoin.
 Register("forcedestroy", function ()
     if not CheckActorExistence() then return end
     local className = GetActorClassName(loadedActor)
