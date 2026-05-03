@@ -25,7 +25,7 @@ PING IMAGE<br>
 You can put a png in /Assets and the file name in the code (around line 10) to use a different ping image.
 
 SAVED LOCATIONS<br>
-You can put locations in the code (around line 22) that you want to use for teleporting or duplicating.<br>
+You can put locations in the code (around line 22) that you want to use for teleporting, duplicating or spawning.<br>
 Example:<br>
 ```lua
 local savedLocations = {
@@ -37,13 +37,14 @@ To use them in commands, just type the index number, that you got while saving, 
 
 --------------------------------------
 COMMON COMMANDS<br>
-```!load [tag]            → load actor by tag
-!loadclass [class]     → load actor by class
-!tpme x y z            → teleport yourself
-!setloc x y z          → teleport loaded actor
-!duplicate [tag] x y z → duplicate actor
-!back                  → undo last teleport
-!repeat                → repeat last command
+```!load [tag]             → load actor by tag
+!loadclass [class]         → load actor by class
+!tpme x y z                → teleport yourself
+!setloc x y z              → teleport loaded actor
+!duplicate [tag] x y z     → duplicate actor
+!spawn [class] x y z [tag] → spawn actor
+!back                      → undo last teleport
+!repeat                    → repeat last command
 ```
 --------------------------------------
 
@@ -65,7 +66,6 @@ Restarts the round.<br>
 
 **2.2.** "time [seconds]"<br>
 Sets the round timer to the provided amount of seconds.<br>
-If you set it to 0 or any negative number, the timer will freeze. To get it back to normal, set it to a positive time.<br>
 
 **2.3.** "kill"<br>
 Kills the player who ran the command (with respawning).<br>
@@ -76,7 +76,7 @@ Kills the player who ran the command (without respawning) which can end the roun
 **2.5.** "respawn"<br>
 Respawns the player who ran the command.<br>
 
-**2.6.** "heal [(opt) hp]"<br>
+**2.6.** "healme [(opt) hp]"<br>
 Sets the player's hp to 100 or the specified number.<br>
 
 **2.7.** "tpme [X] [Y] [Z]" or "tpme [index]"<br>
@@ -95,6 +95,11 @@ Forces the round to start, even if some players have not pressed ready.<br>
 ### 3. ACTORS (general)<br>
 **3.1.** "tag [tag]"<br>
 Prints the amount of actors with the specified tag. If there is exactly one, its class is printed.<br>
+
+**3.2** "spawn [class] [x] [y] [z] or "spawn [index]"<br>
+Spawns an actor of the provided class at the provided location (coordinates or saved index). If a tag is provided, it will be added to the new actor.<br>
+Example: !spawn AI_VIP 3 mytag<br>
+Would spawn a VIP at saved location 3 with tag "mytag" (class name is case insensitive).
 
 
 ### 4. ACTORS (specific)<br>
@@ -131,20 +136,26 @@ Removes the provided tag from the loaded actor.<br>
 **4.11.** "class"<br>
 Prints the class of the loaded actor.<br>
 
-**4.12.** "loc"<br>
+**4.12.** "hp"
+Prints the HP of the loaded actor.
+
+**4.13.** "sethp [hp]"
+Sets the HP of the loaded actor to the provided amount.
+
+**4.14.** "loc"<br>
 Prints the current location of the loaded actor.<br>
 
-**4.13.** "setloc [X] [Y] [Z]" or "setloc [index]"<br>
+**4.15.** "setloc [X] [Y] [Z]" or "setloc [index]"<br>
 Teleports the loaded actor to the provided location or the location saved under the provided index.<br>
 
-**4.14.** "setlocrel [X] [Y] [Z]" or "setlocrel [index]"<br>
+**4.16.** "setlocrel [X] [Y] [Z]" or "setlocrel [index]"<br>
 Teleports the loaded actor RELATIVE to its current location.<br>
 You can provide an offset or an index of the saved locations, which will be treated as an offset.<br>
 
-**4.15.** "check"<br>
+**4.17.** "check"<br>
 Prints the status of the loaded actor. Checks if the actor still exists.<br>
 
-**4.16.** "duplicate [tag] [X] [Y] [Z]" or "duplicate [tag] [index]"<br>
+**4.18.** "duplicate [tag] [X] [Y] [Z]" or "duplicate [tag] [index]"<br>
 Duplicates the loaded actor and adds the provided tag to it.<br>
 You must always provide the tag argument if you want to specify a location. If you do not want to assign a tag, use "nil" as the tag.<br>
 Examples:<br>
@@ -156,20 +167,20 @@ The location where the duplicate will spawn can be provided as three numbers or 
 By default, duplicates are deleted at the end of the round. Commands ending with "persist" prevent this behavior.<br>
 Example: !duplicatepersist mytag 0 0 0<br>
 
-**4.17.** "duplicaterel [tag] [X] [Y] [Z]" or "duplicaterel [tag] [index]"<br>
+**4.19.** "duplicaterel [tag] [X] [Y] [Z]" or "duplicaterel [tag] [index]"<br>
 Same functionality as duplicate, but the location is calculated RELATIVE to the actor.
 Coordinates and saved locations will be treated as offsets.<br>
 
 By default, duplicates are deleted at the end of the round. Commands ending with "persist" prevent this behavior.<br>
 Example: !duplicaterelpersist mytag 0 0 0<br>
 
-**4.18.** "ping"<br>
+**4.20.** "ping"<br>
 Pings the loaded actor. You can add a custom ping image, see PING IMAGE for more information.<br>
 
-**4.19.** "destroy"<br>
+**4.21.** "destroy"<br>
 Destroys the loaded actor. Only works on Lua custom actors, for others see below.<br>
 
-**4.20.** "forcedestroy"<br>
+**4.22.** "forcedestroy"<br>
 Destroys the loaded actor regardless of its class.<br>
 WARNING: If the actor is a Lua spawner or a level editor prop, it will be permanently and irrecoverably deleted from the server. If you need it back, you'll have to restart the server.
 
@@ -178,10 +189,19 @@ WARNING: If the actor is a Lua spawner or a level editor prop, it will be perman
 **5.1.** "myloc"<br>
 Prints the current location of the user that ran the command.<br>
 
+**5.2** "saveactorloc"<br>
+Saves the current location of the loaded actor.
+
+**5.3.** "savemyloc"<br>
+Saves the current location of the player that ran the command.
+
+**5.4.** "saveloc [x] [y] [z]"<br>
+Saves the provided location.
+
 
 ### 6. QOL COMMANDS<br>
 **6.1.** "repeat"<br>
 Repeats the player's last command with the same arguments.<br>
 
 **6.2.** "back"<br>
-Undoes the most recent teleport performed by any player (affects the last teleported actor).
+Undoes the most recent teleport performed by the player.
