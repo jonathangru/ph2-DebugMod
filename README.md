@@ -74,7 +74,7 @@ Kills the player who ran the command (with respawning).<br>
 Kills the player who ran the command (without respawning) which can end the round.<br>
 
 **2.5.** "respawn"<br>
-Respawns the player who ran the command.<br>
+(Does not work as intended atm!) Respawns the player who ran the command.<br>
 
 **2.6.** "healme [(opt) hp]"<br>
 Sets the player's hp to 100 or the specified number.<br>
