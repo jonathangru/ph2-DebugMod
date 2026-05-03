@@ -178,11 +178,11 @@ Example: !duplicaterelpersist mytag 0 0 0<br>
 Pings the loaded actor. You can add a custom ping image, see PING IMAGE for more information.<br>
 
 **4.21.** "destroy"<br>
-Destroys the loaded actor. Only works on Lua custom actors, for others see below.<br>
+Destroys the loaded actor. Does not work on Lua Spawners, level editor props and player chars (to destroy them, see below).<br>
 
 **4.22.** "forcedestroy"<br>
 Destroys the loaded actor regardless of its class.<br>
-WARNING: If the actor is a Lua spawner or a level editor prop, it will be permanently and irrecoverably deleted from the server. If you need it back, you'll have to restart the server.
+Warning: If the actor is a Lua spawner or a level editor prop, it will be permanently and irrecoverably deleted from the server. If you need it back, you'll have to restart the server. If the actor is a player, they will have to rejoin.
 
 
 ### 5. OTHER COMMANDS<br>
