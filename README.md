@@ -10,7 +10,7 @@ ALIASES<br>
 Most commands have aliases associated with them that you can use instead of the normal command name. Have a look at them if you want to add your own commands.
 
 INDICES<br>
-Some commands accept an index instead of coordinates. These include teleport and duplicate commands. 
+Some commands accept an index instead of coordinates. These include teleport, duplicate and spawn commands. 
 These indices refer to saved locations (see SAVED LOCATIONS).
 Indices start at 1.
 
