@@ -1,5 +1,4 @@
 LogMessage("Loaded script: DebugSV.lua")
-
 -- CUSTOMIZATIONS
 
 -- Change this if the commands interfere with your own. You do not need to escape special characters, the code handles them by itself (except if you want to use \ or " then put a \ in front of it).
@@ -24,8 +23,9 @@ local savedLocations = {
 local savedLocationsIndex = #savedLocations
 
 ------------------------------------
---HELPER FUNCTIONS
+--HELPER FUNCTIONS AND CONSTANTS
 
+local MIN_TIME = 0.01
 local AI_CLASSES = {
     AI_Customer = true,
     AI_Employee = true,
@@ -34,9 +34,127 @@ local AI_CLASSES = {
     PlayerAI_Cop = true,
     PlayerAI_Rob = true
 }
+local CLASS_NAME_PLAYER_CHAR = "PlayerChar"
+local CLASS_NAME_LUA_ACTOR = "BP_LuaActor"
+local LUA_SPAWNER_CLASS_NAME = "Lua_Actor_Spawner"
+local ROBBER_CLASS_IDS = {
+    insider = 1,
+    heavy = 2,
+    tech = 3,
+    demo = 4,
+    ninja = 5,
+    sniper = 6,
+    agent = 7,
+    doctor = 8,
+    distractor = 9,
+    scout = 10,
+    engineer = 11,
+    madman = 12,
+    geek = 13,
+    poison = 14,
+    mafiaboss = 15,
+    mechanic = 16,
+    crypto = 17,
+    armsdealer = 18,
+    pickpocket = 19,
+    fedchairman = 20,
+    vaultcracker = 21,
+    joker = 22,
+    hitman = 23,
+    micro = 24,
+    gymbuddy = 25,
+    masterthief = 26,
+    actor = 27,
+    einstein = 28,
+    marx = 29,
+    capone = 30,
+    artist = 31,
+    deaddrop = 32,
+}
+local COP_CLASS_IDS = {
+    officer = 1,
+    spy = 2,
+    swat = 3,
+    fbi = 4,
+    riotcontrol = 5,
+    detective = 6,
+    combatmedic = 7,
+    sergeant = 8,
+    cyberpolice = 9,
+    hornet = 10,
+    developer = 11,
+    manager = 12,
+    sheriff = 13,
+    firefighter = 14,
+    reinforcer = 15,
+    inventor = 16,
+    fedagent = 17,
+    vigil = 18,
+    trafficcop = 19,
+    fedchairman = 20,
+    backup = 21,
+    bodyguard = 22,
+    pilot = 23,
+    janitor = 24,
+    canine = 25,
+    curie = 26,
+    queen = 27,
+    caesar = 28,
+    surge = 29,
+    swarmdrones = 30,
+    swarm = 31
+}
+local WEAPON_IDS = {
+    rifle = 1,
+    smg = 2,
+    autosniper = 3,
+    pistol = 4,
+    rocketlauncher = 5,
+    shotgun = 6,
+    grapplinghook = 7,
+    hook = 7,
+    silencedpistol = 8,
+    smokelauncher = 9,
+    grenadelauncher = 10,
+    teargaslauncher = 11,
+    automaticpistol = 12,
+    autopistol = 12,
+    sniperrifle = 13,
+    sniper = 13,
+    decoylauncher = 14,
+    decoy = 14,
+    carbine = 15,
+    bullpup = 16,
+    bullpupmp = 16,
+    tommygun = 17,
+    taser = 18,
+    tazer = 18,
+    stickylauncher = 19,
+    heavypistol = 20,
+    modifiedpistol = 21,
+    silencedrifle = 22,
+    flashlauncher = 23,
+    ropelauncher = 24,
+    syringegun = 25,
+    slugshotgun = 26,
+    geigercounter = 27,
+    chrononadelauncher = 28,
+    sceptre = 29,
+    dagger = 30,
+    hammer = 31,
+    sickle = 32,
+    bottle = 33,
+    brokenbottle = 34,
+    gladius = 35,
+    tshirtcannon = 36,
+    droneremote = 37,
+    wrench = 38
+}
 
 local roundTimeAtPause
 local paused = false
+
+local roundFinishedFlag = false
 
 local ERROR_NOT_A_NUMBER = "Error, \"%s\" is not a number."
 
@@ -78,7 +196,7 @@ end
 local function ParseNumber(value)
     local n = tonumber(value)
     if n == nil then
-        SendServerMessage(ERROR_NOT_A_NUMBER:format(value))
+        SendServerMessage(ERROR_NOT_A_NUMBER:format(tostring(value)))
     end
     return n
 end
@@ -89,12 +207,17 @@ local function AddVectors(a, b)
     return {X = a.X + b.X, Y = a.Y + b.Y, Z = a.Z + b.Z}
 end
 
---Substracts two 3d vectors. (a-b)
+--Subtracts two 3d vectors. (a-b)
 local function SubVectors(a, b)
     return {X = a.X - b.X, Y = a.Y - b.Y, Z = a.Z - b.Z}
 end
 
---Deep copies the vector.
+--Multiplies the components of two 3d vectors.
+local function MultVectors(a, b)
+    return {X = a.X * b.X, Y = a.Y * b.Y, Z = a.Z * b.Z}
+end
+
+--Deep copies a 3d vector.
 local function CopyVector(v)
     if not v then return end
     local x, y, z = v.X, v.Y, v.Z
@@ -102,7 +225,7 @@ local function CopyVector(v)
     return {X=x, Y=y, Z=z}
 end
 
---Copies a table.
+--Copies an array.
 local function CopyTable(t)
     local new = {}
     for i, v in ipairs(t) do new[i] = v end
@@ -111,6 +234,7 @@ end
 
 
 local ERROR_ROUND_NOT_STARTED = "Error, round has not started yet."
+--Returns true if round is live, returns false and prints error message otherwise.
 local function CheckRoundLive()
     local live = GS().roundLive
     if not live then
@@ -186,17 +310,21 @@ local function LoadActorFromList(index)
     end
     loadedActor = loadedActorsList[index]
     loadedActorsIndex = index
-    SendServerMessage(("Loaded actor with class \"%s\" at index \"%d\". To load a different (already saved) actor, type %snext or %sprev or %sindex [i]. To update the list of actors using the same identifier, type %supdate."):format(GetActorClassName(loadedActor), loadedActorsIndex, COMMAND_PREFIX, COMMAND_PREFIX, COMMAND_PREFIX, COMMAND_PREFIX))
+    local className = GetActorClassName(loadedActor)
+    SendServerMessage(("Loaded actor with class \"%s\" at index \"%d\". To load a different (already saved) actor, type %snext or %sprev or %sindex [i]. To update the list of actors using the same identifier, type %supdate."):format(className, loadedActorsIndex, COMMAND_PREFIX, COMMAND_PREFIX, COMMAND_PREFIX, COMMAND_PREFIX))
+    if className == LUA_SPAWNER_CLASS_NAME then
+        SendServerMessage("Warning - the loaded actor is a lua spawner, not a normal lua actor. Manipulations to it might not reset at round end.")
+    end
 end
 
 
 --Helper functions teleporting
 
-local ERROR_TOO_FEW_COORDINATES = "Error, not enough coordinates provided."
---Extracts the 3d coordinates from the first three elements of an array. Returns false and prints error message if invalid.
-local function GetCoordinates(args)
+local ERROR_TOO_FEW_NUMBERS = "Error, not enough coordinates/factors provided."
+--Extracts the 3d vector from the first three elements of an array. Returns false and prints error message if invalid.
+local function Get3DVector(args)
     if not args[1] or not args[2] or not args[3] then
-        SendServerMessage(ERROR_TOO_FEW_COORDINATES)
+        SendServerMessage(ERROR_TOO_FEW_NUMBERS)
         return false
     end
     local location = {
@@ -263,7 +391,7 @@ end
 local WILL_BE_DELETED_TAG = "duplicatewillbedeleted"
 --Duplicates the loaded actor. args can contain tag and coordinates.
 --If isRelative then coordinates are relative to the actor, otherwise they are world coordinates.
---If willBeDeleted then the duplicate will reset at round end.
+--If persistRounds then the duplicate will not reset at round end.
 local function Duplicate(args, isRelative, persistRounds)
     if not CheckActorExistence() then return end
     local className = GetActorClassName(loadedActor)
@@ -280,7 +408,7 @@ local function Duplicate(args, isRelative, persistRounds)
             coords = GetLocationFromIndex(index)
             if not coords then return end
         elseif #args == 4 then
-            coords = GetCoordinates({table.unpack(args, 2)})
+            coords = Get3DVector({table.unpack(args, 2)})
             if not coords then return end
         elseif #args == 3 or #args == 1 then
             SendServerMessage("Error, invalid amount of arguments. You must provide a tag and then an index or three coordinates.")
@@ -325,17 +453,26 @@ end
 
 --Helper Functions to make actors moveable
 
-local RESET_TAG = "needsreset"
-local RESET_NUMBER_TAG_PREFIX = "resetno"
-local ERROR_RESET_ACTOR = "Error, failed to move teleported actor of class \"%s\" back, it will stay at its current position for every round. %s"
+local LOCATION_RESET_TAG = "dbneedslocationreset"
+local LOCATION_RESET_NUMBER_TAG_PREFIX = "dblocationresetno"
+local ERROR_LOCATION_RESET_ACTOR = "Error, failed to move teleported actor of class \"%s\" back, it will stay at its current position for every round. %s"
 local savedOrigins = {}
 local savedOriginsIndex = 0
+local savedScales = {}
+local SCALE_RESET_TAG = "dbneedsscalereset"
+local SCALE_RESET_NUMBER_TAG_PREFIX = "dbscaleresetno"
+local ERROR_SCALE_RESET_ACTOR = "Error, failed to rescale actor of class \"%s\" to its original scale, it will stay this size for every round. %s"
 
---Extracts the reset number from the actor.
-local function FindResetNumberTag(targetActor)
+--Extracts the reset number from the actor. Searches for scale reset number instead if isScale is true.
+local function FindResetNumberTag(targetActor, isScale)
     local tags = GetActorTags(targetActor)
     for _, tag in ipairs(tags) do
-        local match = tag:match(RESET_NUMBER_TAG_PREFIX .. "(.+)")
+        local match
+        if not isScale then
+            match = tag:match(LOCATION_RESET_NUMBER_TAG_PREFIX .. "(.+)")
+        else
+            match = tag:match(SCALE_RESET_NUMBER_TAG_PREFIX .. "(.+)")
+        end
         if match then
             return match
         end
@@ -344,48 +481,51 @@ end
 
 --Makes the actor moveable, saves its origin position and adds the necessary tags.
 local function MakeMoveable(targetActor)
-    local alreadySavedTag = FindResetNumberTag(targetActor)
-    if alreadySavedTag then
-        if savedOrigins[alreadySavedTag] then
+    if not targetActor then return end
+    local className = GetActorClassName(targetActor)
+    if className == CLASS_NAME_PLAYER_CHAR or className == CLASS_NAME_LUA_ACTOR then return end
+    local alreadySavedNumber = FindResetNumberTag(targetActor, false)
+    if alreadySavedNumber ~= nil then
+        if savedOrigins[LOCATION_RESET_NUMBER_TAG_PREFIX .. alreadySavedNumber] then
             return
         else
-            RemoveActorTag(targetActor, RESET_NUMBER_TAG_PREFIX .. alreadySavedTag)
+            RemoveActorTag(targetActor, LOCATION_RESET_NUMBER_TAG_PREFIX .. alreadySavedNumber)
         end
     end
     local root = targetActor:GetRootComponent()
     if not root then
-        LogMessage("i got no roots")
+        LogMessage("Error, I got no roots.")
         return
     end
     root:SetMobility(2) -- 0=Static, 1=Stationary, 2=Movable
     local loc = targetActor:GetActorLocation()
     local locCopy = CopyVector(loc)
     savedOriginsIndex = savedOriginsIndex + 1
-    local resetNumberTag = RESET_NUMBER_TAG_PREFIX .. tostring(savedOriginsIndex)
+    local resetNumberTag = LOCATION_RESET_NUMBER_TAG_PREFIX .. tostring(savedOriginsIndex)
     savedOrigins[resetNumberTag] = locCopy
-    AddActorTag(targetActor, RESET_TAG)
+    AddActorTag(targetActor, LOCATION_RESET_TAG)
     AddActorTag(targetActor, resetNumberTag)
 end
 
 --Teleports the actor back to its origin. Prints an error message if there is no origin associated with the actor.
 local function ResetActorLocation(targetActor, resetNumber)
-    local resetNumberTag = RESET_NUMBER_TAG_PREFIX .. resetNumber
+    local resetNumberTag = LOCATION_RESET_NUMBER_TAG_PREFIX .. resetNumber
     if not savedOrigins[resetNumberTag] then
-        SendServerMessage(ERROR_RESET_ACTOR:format(GetActorClassName(targetActor), "(FAIL origin)"))
+        SendServerMessage(ERROR_LOCATION_RESET_ACTOR:format(GetActorClassName(targetActor), "(FAIL origin)"))
         return
     end
     targetActor:SetActorLocation(savedOrigins[resetNumberTag])
-    RemoveActorTag(targetActor, RESET_TAG)
+    RemoveActorTag(targetActor, LOCATION_RESET_TAG)
     RemoveActorTag(targetActor, resetNumberTag)
 end
 
 --Handles the resetting of all (still exisiting) actors
-local function ResetAll()
-    local actors = GetAllActorsWithTag(RESET_TAG)
+local function ResetAllLocations()
+    local actors = GetAllActorsWithTag(LOCATION_RESET_TAG)
     for _, actor in ipairs(actors) do
-        local number = FindResetNumberTag(actor)
+        local number = FindResetNumberTag(actor, false)
         if not number then
-            SendServerMessage(ERROR_RESET_ACTOR:format(GetActorClassName(actor), "(FAIL numbertag)"))
+            SendServerMessage(ERROR_LOCATION_RESET_ACTOR:format(GetActorClassName(actor), "(FAIL numbertag)"))
         else
             ResetActorLocation(actor, number)
         end
@@ -400,15 +540,88 @@ local function DeleteDuplicates()
     end
 end
 
+--Saves the scales of objects that will be scaled so that they can be reset at round finish.
+function SaveScale(targetActor)
+    local alreadySavedNumber = FindResetNumberTag(targetActor, true)
+    if alreadySavedNumber ~= nil then
+        if savedScales[SCALE_RESET_NUMBER_TAG_PREFIX .. alreadySavedNumber] then
+            return
+        else
+            RemoveActorTag(targetActor, SCALE_RESET_NUMBER_TAG_PREFIX .. alreadySavedNumber)
+        end
+    end
+    local scale = targetActor:GetActorScale3D()
+    if not scale then return end
+    local resetNumberTag = SCALE_RESET_NUMBER_TAG_PREFIX .. tostring(#savedScales + 1)
+    savedScales[resetNumberTag] = scale
+    AddActorTag(targetActor, SCALE_RESET_TAG)
+    AddActorTag(targetActor, resetNumberTag)
+end
+
+--Resets the scale of the provided actor.
+function ResetActorScale(targetActor, resetNumber)
+    local resetNumberTag = SCALE_RESET_NUMBER_TAG_PREFIX .. resetNumber
+    if not savedScales[resetNumberTag] then
+        SendServerMessage(ERROR_SCALE_RESET_ACTOR:format(GetActorClassName(targetActor), "(FAIL saved scale)"))
+        return
+    end
+    local root = targetActor:GetRootComponent()
+    if not root then
+        SendServerMessage(ERROR_SCALE_RESET_ACTOR:format(GetActorClassName(targetActor), "(FAIL root)"))
+    end
+    root:SetRelativeScale3D(savedScales[resetNumberTag])
+    RemoveActorTag(targetActor, SCALE_RESET_TAG)
+    RemoveActorTag(targetActor, resetNumberTag)
+end
+
+--Resets all saved scale changes.
+function ResetAllScales()
+    local actors = GetAllActorsWithTag(SCALE_RESET_TAG)
+    for _, actor in ipairs(actors) do
+        local number = FindResetNumberTag(actor, true)
+        if not number then
+            SendServerMessage(ERROR_SCALE_RESET_ACTOR:format(GetActorClassName(actor), "(FAIL numbertag)"))
+        else
+            ResetActorScale(actor, number)
+        end
+    end
+end
+
 local restartFlag = false
 --Teleport moved actors back and delete duplicates at round end.
 ListenToEvent("RoundFinished", function()
-    ResetAll()
+    roundFinishedFlag = true
+    ResetAllLocations()
+    ResetAllScales()
     DeleteDuplicates()
     if restartFlag == true then
-        SetTimer(0.01, "RestartRoundLUA", GM())
+        GM():RestartHeistGame()
     end
 end)
+
+--Extracts the arguments needed for movement commands (location and seconds).
+function GetMoveArgs(args)
+    if not args then return end
+    local amountOfArgs = #args
+    local loc
+    local seconds
+    if amountOfArgs == 2 then
+        seconds = ParseNumber(args[2])
+        if seconds == nil then return end
+        local i = ParseNumber(args[1])
+        if i == nil then return end
+        loc = GetLocationFromIndex(i)
+    elseif amountOfArgs == 4 then
+        seconds = ParseNumber(args[4])
+        if not seconds then return end
+        loc = Get3DVector({table.unpack(args, 1, 3)})
+    else
+        SendServerMessage(("Error, invalid amount of arguments. Usage %smove [x] [y] [z] [sec] or %smove [index] [sec]"):format(COMMAND_PREFIX, COMMAND_PREFIX))
+        return
+    end
+    return loc, seconds
+end
+
 
 
 ------------------------------------
@@ -457,15 +670,12 @@ end, {"setlogicchannel", "setchannel", "setlogic"})
 
 --CONTROL
 
+
 --Restarts the round and also fires RoundFinished.
-ListenToEvent("RestartRoundLUA", function (gm)
-    gm:RestartHeistGame()
-end)
 Register("restart", function ()
     SendServerMessage("Restarting round...")
-    local gm = GM()
     restartFlag = true
-    SetTimer(0.01, "RoundFinished", gm) --will also trigger restart since flag is set.
+    SetTimer(0.01, "RoundFinished", GM()) --will also trigger restart since flag is set.
 end, {"restartround", "roundrestart", "resetround", "roundreset"})
 
 
@@ -489,7 +699,7 @@ end, {"timer", "settimer", "settime", "roundtimer", "roundtime", "setroundtime",
 Register("pause", function ()
     if not CheckRoundLive() then return end
     if paused then
-        SendServerMessage("Error, timer is already paused.")
+        SendServerMessage(("Error, timer is already paused. Use %sunpause."):format(COMMAND_PREFIX))
         return
     end
     paused = true
@@ -552,12 +762,21 @@ Register("killnorespawn", function (_, playerActor)
     end
 end)
 
---Respawns the player that runs the command. (Does currently not work as intended)
---SupriseRespawnSV 	loc: FVector, HP: float -- SupriseRespawnCl
-Register("respawn", function (_, playerActor)
-    GM():RespawnPlayer(playerActor, false)
-    playerActor:PlayerRespawnedCl()
-    playerActor:PlayerRespawnedSv()
+--Respawns the player that runs the command.
+Register("respawn", function (args, playerActor)
+    local loc
+    if #args == 1 then
+        local i = ParseNumber(args[1])
+        if not i then return end
+        loc = GetLocationFromIndex(i)
+        if not loc then return end
+    elseif #args == 3 then
+        loc = Get3DVector(args)
+        if not loc then return end
+    else
+        loc = ZERO_VECTOR
+    end
+    playerActor:SupriseRespawnSV(loc, 100.0)
     SendServerMessage("Respawned player " .. playerActor.PlayersName)
 end)
 
@@ -579,7 +798,7 @@ Register("tpme", function (args, playerActor)
         index = math.floor(index)
         location = GetLocationFromIndex(index)
     else
-        location = GetCoordinates(args)
+        location = Get3DVector(args)
     end
     if not location then return end
     teleportPlayer(location, playerActor:GetActorLocation(), playerActor)
@@ -595,7 +814,7 @@ Register("tpmerel", function (args, playerActor)
         index = math.floor(index)
         location = GetLocationFromIndex(index)
     else
-        location = GetCoordinates(args)
+        location = Get3DVector(args)
     end
     if not location then return end
     local currentLocation = playerActor:GetActorLocation()
@@ -607,7 +826,64 @@ Register("tp", function ()
     SendServerMessage(("To teleport yourself, use %stpme. To teleport the loaded actor, use %stpactor"):format(COMMAND_PREFIX, COMMAND_PREFIX))
 end, {"teleport"})
 
+--Updates the class of the player.
+Register("setclass", function (args, playerActor)
+    if not args[1] or not playerActor then return end
+    local className = args[1]:lower()
+    local id
+    if playerActor.robber == true then
+        id = ROBBER_CLASS_IDS[className]
+    else
+        id = COP_CLASS_IDS[className]
+    end
+    if id == nil then
+        SendServerMessage(("Error, %s is not a valid class for your team."):format(className))
+        return
+    end
+    playerActor:UpdateClassSV(math.floor(id), true, 0, false, "")
+    SendServerMessage("Updated your class.")
+end, {"setmyclass", "myclass", "updateclass", "updatemyclass"})
 
+--Sets the money amount the player is carrying.
+Register("money", function (args, playerActor)
+    if not args[1] then
+        SendServerMessage("Error, no money amount provided.")
+        return
+    end
+    local amount = ParseNumber(args[1])
+    if not amount then return end
+    amount = math.floor(amount)
+    local ac = playerActor.ActionComponent
+    ac.moneyAmount = amount
+    SendServerMessage(("Set carried money to %d."):format(amount))
+end, {"setmoney", "mymoney", "setmymoney"})
+
+--Gives the player the specified weapon.
+Register("weapon", function (args, playerActor)
+    if not playerActor or not playerActor.WeaponComponent then return end
+    if not args[1] then
+        SendServerMessage("Error, no weapon name provided.")
+        return
+    end
+    local weaponID = WEAPON_IDS[args[1]:lower()]
+    if weaponID == nil then
+        SendServerMessage(("Error, %s is not a valid weapon name."):format(args[1]))
+        return
+    end
+    playerActor.WeaponComponent:AddWepToLastSlot(weaponID)
+    LogMessage(("Set your weapon to %s."):format(args[1]))
+end, {"giveweapon", "setweapon", "myweapon"})
+
+--Prints all tags of the player.
+Register("mytags", function (args, playerActor)
+    local tags = GetActorTags(playerActor)
+    if #tags == 0 then
+        SendServerMessage("You have no tags.")
+    else
+        SendServerMessage(table.concat(tags, ", "))
+    end
+end
+)
 --Forces the round to start immediately
 Register("start", function ()
     local players = GetAllActorsOfClass("PlayerChar")
@@ -615,6 +891,13 @@ Register("start", function ()
         player:SetReadyCl(true)
     end
 end, {"ready", "startround"})
+
+--Prints the location of the player.
+Register("myloc", function (_, playerActor)
+    if not playerActor then return end
+    local loc = playerActor:GetActorLocation()
+    SendServerMessage(("Your location is X=%.2f, Y=%.2f, Z=%.2f."):format(loc.X, loc.Y, loc.Z))
+end, {"mylocation", "mypos", "myposition"})
 
 
 --ACTORS
@@ -651,9 +934,9 @@ Register("spawn", function (args)
         loc = GetLocationFromIndex(args[2])
         tag = args[3]
     elseif size == 4 then
-        loc = GetCoordinates({table.unpack(args, 2)})
+        loc = Get3DVector({table.unpack(args, 2)})
     elseif size == 5 then
-        loc = GetCoordinates({table.unpack(args, 2)})
+        loc = Get3DVector({table.unpack(args, 2)})
         tag = args[5]
     else
         SendServerMessage(("Error, invalid amount of args. Usage \"%sspawn [class] [loc]\"."):format(COMMAND_PREFIX))
@@ -675,7 +958,6 @@ end)
 
 
 --Load an actor to access its commands
-
 
 --Loads a new list of actors with the specified tag.
 Register("load", function (args)
@@ -815,7 +1097,7 @@ Register("class", function ()
     if CheckActorExistence() then
         SendServerMessage(("Class of loaded actor is \"%s\""):format(GetActorClassName(loadedActor)))
     end
-end, {"actorclass"})
+end, {"actorclass", "classactor"})
 
 local ERROR_NO_HP = "Error, loaded actor does not have HP."
 Register("hp", function ()
@@ -847,7 +1129,7 @@ Register("loc", function ()
     if not CheckActorExistence() then return end
     local loc = loadedActor:GetActorLocation()
     SendServerMessage(("Location of loaded actor is X=%.2f, Y=%.2f, Z=%.2f"):format(loc.X, loc.Y, loc.Z))
-end, {"location", "getloc", "getlocation", "getactorlocation", "pos", "position", "getpos", "getposition", "getactorposition"})
+end, {"location", "getloc", "getlocation", "getactorlocation", "pos", "position", "getpos", "getposition", "getactorposition", "getactorloc", "getactorpos", "actorloc", "actorpos", "actorlocation", "actorposition"})
 
 --Teleports the loaded actor to the provided location.
 Register("setloc", function (args, playerActor)
@@ -864,7 +1146,7 @@ Register("setloc", function (args, playerActor)
         index = math.floor(index)
         location = GetLocationFromIndex(index)
     else
-        location = GetCoordinates(args)
+        location = Get3DVector(args)
     end
     if not location then return end
     MakeMoveable(loadedActor)
@@ -891,9 +1173,10 @@ Register("setlocrel", function (args, playerActor)
         index = math.floor(index)
         location = GetLocationFromIndex(index)
     else
-        location = GetCoordinates(args)
+        location = Get3DVector(args)
     end
     if not location then return end
+    MakeMoveable(loadedActor)
     local name = playerActor.PlayersName
     lastTeleportOrigin[name] = loadedActor:GetActorLocation()
     lastTeleportedActor[name] = loadedActor
@@ -904,7 +1187,117 @@ Register("setlocrel", function (args, playerActor)
     else
         SendServerMessage(("Teleported loaded actor. %s"):format(TELEPORT_BACK_MESSAGE))
     end
-end, {"setlocrelative", "setlocationrel", "setlocationrelative", "tpactorrel", "tpactorrelative", "tploadedrel", "tploadedrelative", "teleportloadedrel", "teleportloadedrelative", "teleportactorrel", "teleportactorrelative", "setactorlocationrel", "setactorlocationrelative"})
+end, {"setlocrel", "setlocrelative", "setlocationrel", "setlocationrelative", "tpactorrel", "tpactorrelative", "tploadedrel", "tploadedrelative", "teleportloadedrel", "teleportloadedrelative", "teleportactorrel", "teleportactorrelative", "setactorlocationrel", "setactorlocationrelative"})
+
+
+local movingActors = {}
+--Time between movement steps.
+local MOVEMENT_TICK = 0.04
+--Smoothly moves the loaded actor to the provided location (coordinates or saved index) in the provided amount of time (in seconds).
+--Usage: move [x] [y] [z] [t] or move [i] [t]
+Register("move", function (args)
+    if not CheckActorExistence() then return end
+    local loc, seconds = GetMoveArgs(args)
+    if not loc or not seconds then return end
+
+    local startLoc = loadedActor:GetActorLocation()
+    local movingActor = {
+        startLocX = startLoc.X,
+        startLocY = startLoc.Y,
+        startLocZ = startLoc.Z,
+        targetLocX = loc.X,
+        targetLocY = loc.Y,
+        targetLocZ = loc.Z,
+        timeTotal = seconds,
+        timePassed = 0.0
+    }
+    local name = GetActorName(loadedActor)
+    movingActors[name] = movingActor
+    MakeMoveable(loadedActor)
+    SetTimer(MOVEMENT_TICK, "MoveActorStep", loadedActor)
+    SendServerMessage("Moving loaded actor.")
+end, {"slide"})
+--Moves the loaded actor relative to its current location.
+Register("moverel", function (args)
+    if not CheckActorExistence() then return end
+    local loc, seconds = GetMoveArgs(args)
+    if not loc or not seconds then return end
+
+    local startLoc = loadedActor:GetActorLocation()
+    local movingActor = {
+        startLocX = startLoc.X,
+        startLocY = startLoc.Y,
+        startLocZ = startLoc.Z,
+        targetLocX = loc.X + startLoc.X,
+        targetLocY = loc.Y + startLoc.Y,
+        targetLocZ = loc.Z + startLoc.Z,
+        timeTotal = seconds,
+        timePassed = 0.0
+    }
+    local name = GetActorName(loadedActor)
+    movingActors[name] = movingActor
+    MakeMoveable(loadedActor)
+    SetTimer(MOVEMENT_TICK, "MoveActorStep", loadedActor)
+    SendServerMessage("Moving loaded actor.")
+end, {"moverelative", "sliderel", "sliderelative"})
+
+--Moves the actor one step towards its target.
+ListenToEvent("MoveActorStep", function(actor)
+    if roundFinishedFlag == true then return end
+    if not CheckActorExistence(actor) then return end
+    local name = GetActorName(actor)
+    local data = movingActors[name]
+    if not data then return end
+
+    data.timePassed = data.timePassed + MOVEMENT_TICK
+    local alpha = math.min(data.timePassed / data.timeTotal, 1.0)
+    local newLoc = {
+        X = data.startLocX + (data.targetLocX - data.startLocX) * alpha,
+        Y = data.startLocY + (data.targetLocY - data.startLocY) * alpha,
+        Z = data.startLocZ + (data.targetLocZ - data.startLocZ) * alpha
+    }
+    actor:SetActorLocation(newLoc)
+    if alpha < 1.0 then
+        SetTimer(MOVEMENT_TICK, "MoveActorStep", actor)
+    else
+        movingActors[name] = nil
+    end
+end)
+
+--Sets the size of the loaded actor to the provided numbers.
+Register("scale", function (args)
+    if not CheckActorExistence() then return end
+    local scale = Get3DVector(args)
+    if not scale then return end
+    SaveScale(loadedActor)
+    loadedActor:SetActorScale3D(scale)
+    SendServerMessage("Scaled loaded actor.")
+end, {"size", "setscale", "setsize"})
+--Scales the size of the loaded actor relative to its current scale.
+Register("scalerel", function (args)
+    if not CheckActorExistence() then return end
+    local currentScale = loadedActor:GetActorScale3D()
+    if not currentScale then
+        SendServerMessage("Error, failed to get scale of loaded actor.")
+        return
+    end
+    local scaleFactor = Get3DVector(args)
+    if not scaleFactor then return end
+    SaveScale(loadedActor)
+    loadedActor:SetActorScale3D(MultVectors(currentScale, scaleFactor))
+    SendServerMessage("Scaled loaded actor.")
+end)
+
+--Prints the scale of the loaded actor.
+Register("getscale", function ()
+    if not CheckActorExistence() then return end
+    local scale = loadedActor:GetActorScale3D()
+    if not scale then
+        SendServerMessage("Error, failed to get scale of loaded actor.")
+        return
+    end
+    SendServerMessage(("Scale of loaded actor is X=%.2f, Y=%.2f, Z=%.2f."):format(scale.X, scale.Y, scale.Z))
+end, {"getsize"})
 
 
 --Checks the status of the currently loaded actor.
@@ -988,10 +1381,6 @@ end)
 
 --OTHER COMMANDS
 
-Register("myloc", function (_, playerActor)
-    local loc = playerActor:GetActorLocation()
-    SendServerMessage(("Your location is X=%.2f, Y=%.2f, Z=%.2f."):format(loc.X, loc.Y, loc.Z))
-end, {"mylocation", "mypos", "myposition"})
 
 --Saves the current location of the loaded actor.
 Register("saveactorloc", function ()
@@ -1005,11 +1394,22 @@ end, {"savemylocation", "savemypos", "savemyposition"})
 
 --Saves the provided coordinates.
 Register("saveloc", function (args)
-    local coords = GetCoordinates(args)
+    local coords = Get3DVector(args)
     if coords then
         SaveLocation(coords)
     end
 end)
+
+--Triggers an event.
+Register("event", function (args)
+    if not args[1] then
+        SendServerMessage("Error, no event provided.")
+        return
+    end
+    SetTimer(MIN_TIME, args[1], GS())
+    SendServerMessage(("Triggering event \"%s\"..."):format(args[1]))
+end, {"trigger", "fire", "triggerevent", "fireevent", "settimer"})
+
 
 
 --QOL
@@ -1075,11 +1475,12 @@ local function HandleMessage(message, teamID, playerActor)
     local commandString = message:match(commandMatch)
     if commandString and teamID ~= 0 then
         local words = {}
-        for word in string.gmatch(commandString:lower(), "%S+") do
+        for word in string.gmatch(commandString, "%S+") do
             table.insert(words, word)
         end
         local command = words[1]
         if not command then return end
+        command = command:lower()
         table.remove(words, 1)
         local fn = commands[command]
         if fn then

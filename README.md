@@ -3,7 +3,7 @@ Debug mod for Perfect Heist 2.
 
 COMMAND USAGE<br>
 Type "!" (or your own prefix, see below) followed by the command name and arguments, if needed.
-Arguments are separated by spaces. All commands and arguments are case insensitive.<br>
+Arguments are separated by spaces. All command names are case insensitive.<br>
 Example: !loadclass className
 
 ALIASES<br>
@@ -18,14 +18,14 @@ Indices start at 1.
 CUSTOMIZATIONS<br>
 
 COMMAND PREFIX<br>
-The default command prefix is "!". If this interferes with your own commands, you can change it in the code (around line 6).
+The default command prefix is "!". If this interferes with your own commands, you can change it in the code (around line 5).
 Special characters are handled automatically. Only escape "\\" and "\"" by prefixing them with "\\".
 
 PING IMAGE<br>
-You can put a png in /Assets and the file name in the code (around line 10) to use a different ping image.
+You can put a png in /Assets and the file name in the code (around line 9) to use a different ping image.
 
 SAVED LOCATIONS<br>
-You can put locations in the code (around line 22) that you want to use for teleporting, duplicating or spawning.<br>
+You can put locations in the code (around line 21) that you want to use for teleporting, duplicating or spawning.<br>
 Example:<br>
 ```lua
 local savedLocations = {
@@ -67,29 +67,52 @@ Restarts the round.<br>
 **2.2.** "time [seconds]"<br>
 Sets the round timer to the provided amount of seconds.<br>
 
-**2.3.** "kill"<br>
+**2.3** "pause"<br>
+Pauses the round timer.
+
+**2.4.** "unpause"<br>
+Unpauses the round timer.
+
+**2.5.** "kill"<br>
 Kills the player who ran the command (with respawning).<br>
 
-**2.4.** "killnorespawn"<br>
+**2.7.** "killnorespawn"<br>
 Kills the player who ran the command (without respawning) which can end the round.<br>
 
-**2.5.** "respawn"<br>
-(Does not work as intended atm!) Respawns the player who ran the command.<br>
+**2.8.** "respawn" or "respawn [index]" or "respawn [x] [y] [z]"<br>
+Respawns the player who ran the command at the provided location (coordinates or index; 0 0 0 if left unspecified).<br>
 
-**2.6.** "healme [(opt) hp]"<br>
+**2.9.** "healme [(opt) hp]"<br>
 Sets the player's hp to 100 or the specified number.<br>
 
-**2.7.** "tpme [X] [Y] [Z]" or "tpme [index]"<br>
+**2.10.** "tpme [X] [Y] [Z]" or "tpme [index]"<br>
 Teleports the player who ran the command to world coordinates.<br>
 You can provide a location or an index of the saved locations.<br>
 Examples: !tpme 0 0 0 or !tpme 1<br>
 
-**2.8.** "tpmerel [x] [y] [z]" or "tpmerel [index]"<br>
+**2.11.** "tpmerel [x] [y] [z]" or "tpmerel [index]"<br>
 Teleports the player who ran the command RELATIVE to their position.<br>
 You can provide an offset or an index of the saved locations, which will be treated as an offset.<br>
 
-**2.9.** "start"<br>
+**2.12.** "setclass [className]"<br>
+Sets the player's class. Names are as follows:<br>
+Robber: insider, heavy, tech, demo, ninja, sniper, agent, doctor, distractor, scout, engineer, madman, geek, poison, mafiaboss, mechanic, crypto, armsdealer, pickpocket, fedchairman, vaultcracker, joker, hitman, micro, gymbuddy, masterthief, actor, einstein, marx, capone, artist, deaddrop<br>
+Cop: officer, spy, swat, fbi, riotcontrol, detective, combatmedic, sergeant, cyberpolice, hornet, developer, manager, sheriff, firefighter, reinforcer, inventor, fedagent, vigil, trafficcop, backup, bodyguard, pilot, janitor, canine, curie, caesar, surge, swarmdrones, swarm<br>
+
+**2.13.** "money [amount]"<br>
+Sets the money the player is carrying.<br>
+
+**2.14.** "weapon [name]"<br>
+Gives the player the specified weapon. All weapon names are one word, for example "tshirtcannon".<br>
+
+**2.15.** "mytags"<br>
+Prints the tags the player has.<br>
+
+**2.16.** "start"<br>
 Forces the round to start, even if some players have not pressed ready.<br>
+
+**2.17.** "myloc"<br>
+Prints the current location of the player.<br>
 
 
 ### 3. ACTORS (general)<br>
@@ -118,7 +141,7 @@ Loads the next actor in the list.<br>
 **4.5.** "prev"<br>
 Loads the previous actor in the list.<br>
 
-**4.6.** "index [i]"<br>
+**4.6.** "index [(opt) i]"<br>
 Loads the actor at the provided index. If no index is provided, it prints the current index instead.<br>
 
 **4.7.** "tags"<br>
@@ -152,10 +175,25 @@ Teleports the loaded actor to the provided location or the location saved under 
 Teleports the loaded actor RELATIVE to its current location.<br>
 You can provide an offset or an index of the saved locations, which will be treated as an offset.<br>
 
-**4.17.** "check"<br>
+**4.17** "move [x] [y] [z] [t]" or "move [i] [t]"<br>
+Smoothly moves the loaded actor to the provided location (coordinates or index, absolute world location) in t seconds.<br>
+
+**4.18.** "moverel [x] [y] [z] [t]" or "moverel [i] [t]"<br>
+Smoothly moves the loaded actor to the provided location (coordinates or index, RELATIVE to current location) in t seconds.<br>
+
+**4.19.** "scale [x] [y] [z]"<br>
+Scales the loaded actor to the provided scale (absolute).<br>
+
+**4.20.** "scalerel [x] [y] [z]"<br>
+Scales the loaded actor relative to its current scale.<br>
+
+**4.21.** "getscale"<br>
+Prints the scale of the loaded actor.<br>
+
+**4.22.** "check"<br>
 Prints the status of the loaded actor. Checks if the actor still exists.<br>
 
-**4.18.** "duplicate [tag] [X] [Y] [Z]" or "duplicate [tag] [index]"<br>
+**4.23.** "duplicate [tag] [X] [Y] [Z]" or "duplicate [tag] [index]"<br>
 Duplicates the loaded actor and adds the provided tag to it.<br>
 You must always provide the tag argument if you want to specify a location. If you do not want to assign a tag, use "nil" as the tag.<br>
 Examples:<br>
@@ -164,23 +202,23 @@ Examples:<br>
 If you want to spawn it in place and add no tag, you can also type the command without any arguments.
 The location where the duplicate will spawn can be provided as three numbers or as one index of the saved locations (always after the tag).<br>
 
-By default, duplicates are deleted at the end of the round. Commands ending with "persist" prevent this behavior.<br>
+By default, duplicates are deleted at the end of the round. Commands ending with "persist" prevent this behavior:<br>
 Example: !duplicatepersist mytag 0 0 0<br>
 
-**4.19.** "duplicaterel [tag] [X] [Y] [Z]" or "duplicaterel [tag] [index]"<br>
+**4.24.** "duplicaterel [tag] [X] [Y] [Z]" or "duplicaterel [tag] [index]"<br>
 Same functionality as duplicate, but the location is calculated RELATIVE to the actor.
 Coordinates and saved locations will be treated as offsets.<br>
 
-By default, duplicates are deleted at the end of the round. Commands ending with "persist" prevent this behavior.<br>
+By default, duplicates are deleted at the end of the round. Commands ending with "persist" prevent this behavior:<br>
 Example: !duplicaterelpersist mytag 0 0 0<br>
 
-**4.20.** "ping"<br>
+**4.25.** "ping"<br>
 Pings the loaded actor. You can add a custom ping image, see PING IMAGE for more information.<br>
 
-**4.21.** "destroy"<br>
+**4.26.** "destroy"<br>
 Destroys the loaded actor. Does not work on Lua Spawners, level editor props and player chars (to destroy them, see below).<br>
 
-**4.22.** "forcedestroy"<br>
+**4.27.** "forcedestroy"<br>
 Destroys the loaded actor regardless of its class.<br>
 Warning: If the actor is a Lua spawner or a level editor prop, it will be permanently and irrecoverably deleted from the server. If you need it back, you'll have to restart the server. If the actor is a player, they will have to rejoin.
 
@@ -190,13 +228,17 @@ Warning: If the actor is a Lua spawner or a level editor prop, it will be perman
 Prints the current location of the user that ran the command.<br>
 
 **5.2** "saveactorloc"<br>
-Saves the current location of the loaded actor.
+Saves the current location of the loaded actor.<br>
 
 **5.3.** "savemyloc"<br>
-Saves the current location of the player that ran the command.
+Saves the current location of the player that ran the command.<br>
 
 **5.4.** "saveloc [x] [y] [z]"<br>
-Saves the provided location.
+Saves the provided location.<br>
+
+**5.5** "event [name]"<br>
+Triggers the provided event by its name. This is case sensitive!<br>
+
 
 
 ### 6. QOL COMMANDS<br>
@@ -204,4 +246,4 @@ Saves the provided location.
 Repeats the player's last command with the same arguments.<br>
 
 **6.2.** "back"<br>
-Undoes the most recent teleport performed by the player.
+Undoes the most recent teleport performed by the specific player.
